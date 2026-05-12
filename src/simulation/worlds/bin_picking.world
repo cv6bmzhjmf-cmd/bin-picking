@@ -8,16 +8,6 @@
       <shadows>true</shadows>
     </scene>
 
-    <!-- Ground plane -->
-    <include>
-      <uri>model://sun</uri>
-    </include>
-
-    <!-- Gripper: Robotiq 2F-85 -->
-    <include>
-      <uri>model://robotiq_85_gripper</uri>
-    </include>
-
     <!-- Table -->
     <model name="work_table">
       <static>true</static>
