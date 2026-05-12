@@ -3,10 +3,16 @@
   <world name="bin_picking_world">
     <!-- Lighting -->
     <scene>
-      <ambient>0.5 0.5 0.5 1.0</ambient>
-      <background>0.3 0.3 0.3 1.0</background>
-      <shadows>true</shadows>
+      <ambient>0.8 0.8 0.8 1.0</ambient>
+      <background>0.5 0.5 0.5 1.0</background>
+      <shadows>false</shadows>
     </scene>
+    <light name="overhead_light" type="point">
+      <pose>0.5 0 1.0 0 0 0</pose>
+      <diffuse>1.0 1.0 1.0 1.0</diffuse>
+      <specular>0.3 0.3 0.3 1.0</specular>
+      <attenuation><range>10</range></attenuation>
+    </light>
 
     <!-- Table -->
     <model name="work_table">
@@ -27,8 +33,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>0.4 0.3 0.2 1.0</ambient>
-            <diffuse>0.6 0.5 0.3 1.0</diffuse>
+            <ambient>0.15 0.15 0.15 1</ambient>
+            <diffuse>0.25 0.25 0.25 1</diffuse>
           </material>
         </visual>
       </link>
@@ -53,9 +59,61 @@
             </box>
           </geometry>
           <material>
-            <ambient>0.2 0.2 0.2 1.0</ambient>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.2 0.2 0.2 1</diffuse>
           </material>
         </visual>
+      </link>
+    </model>
+
+    <!-- 料箱底板（高对比度黑白格，大号） -->
+    <model name="bin_floor_white">
+      <static>true</static>
+      <pose>0.5 0 0.055 0 0 0</pose>
+      <link name="flr"><visual name="fv"><geometry><box><size>0.38 0.28 0.002</size></box></geometry><material><ambient>0.9 0.9 0.9 1</ambient></material></visual></link></model>
+    <!-- 大号黑色方块 -->
+    <model name="cb_0"><static>true</static><pose>0.41 0.08 0.056 0 0 0</pose><link name="cb0"><visual name="cb0v"><geometry><box><size>0.06 0.06 0.001</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient></material></visual></link></model>
+    <model name="cb_1"><static>true</static><pose>0.53 0.08 0.056 0 0 0</pose><link name="cb1"><visual name="cb1v"><geometry><box><size>0.06 0.06 0.001</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient></material></visual></link></model>
+    <model name="cb_2"><static>true</static><pose>0.47 0 0.056 0 0 0</pose><link name="cb2"><visual name="cb2v"><geometry><box><size>0.06 0.06 0.001</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient></material></visual></link></model>
+    <model name="cb_3"><static>true</static><pose>0.59 0 0.056 0 0 0</pose><link name="cb3"><visual name="cb3v"><geometry><box><size>0.06 0.06 0.001</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient></material></visual></link></model>
+    <model name="cb_4"><static>true</static><pose>0.41 -0.08 0.056 0 0 0</pose><link name="cb4"><visual name="cb4v"><geometry><box><size>0.06 0.06 0.001</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient></material></visual></link></model>
+    <model name="cb_5"><static>true</static><pose>0.53 -0.08 0.056 0 0 0</pose><link name="cb5"><visual name="cb5v"><geometry><box><size>0.06 0.06 0.001</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient></material></visual></link></model>
+
+    <!-- ===== 更多小型零件覆盖底板，减少空纹理区域 ===== -->
+    <!-- 小球1 -->
+    <model name="part_ball_1">
+      <pose>0.42 0.06 0.1 0 0 0</pose>
+      <link name="b1">
+        <collision name="b1c"><geometry><sphere><radius>0.015</radius></sphere></geometry></collision>
+        <visual name="b1v"><geometry><sphere><radius>0.015</radius></sphere></geometry>
+          <material><ambient>0.1 0.3 0.8 1</ambient></material></visual>
+      </link>
+    </model>
+    <!-- 小球2 -->
+    <model name="part_ball_2">
+      <pose>0.58 -0.06 0.1 0 0 0</pose>
+      <link name="b2">
+        <collision name="b2c"><geometry><sphere><radius>0.012</radius></sphere></geometry></collision>
+        <visual name="b2v"><geometry><sphere><radius>0.012</radius></sphere></geometry>
+          <material><ambient>0.9 0.5 0.1 1</ambient></material></visual>
+      </link>
+    </model>
+    <!-- 小球3 -->
+    <model name="part_ball_3">
+      <pose>0.5 -0.1 0.1 0 0 0</pose>
+      <link name="b3">
+        <collision name="b3c"><geometry><sphere><radius>0.01</radius></sphere></geometry></collision>
+        <visual name="b3v"><geometry><sphere><radius>0.01</radius></sphere></geometry>
+          <material><ambient>0.1 0.8 0.3 1</ambient></material></visual>
+      </link>
+    </model>
+    <!-- 金属色小方块 -->
+    <model name="part_metal_cube">
+      <pose>0.52 0.1 0.1 0 0 0.3</pose>
+      <link name="m1">
+        <collision name="m1c"><geometry><box><size>0.025 0.025 0.025</size></box></geometry></collision>
+        <visual name="m1v"><geometry><box><size>0.025 0.025 0.025</size></box></geometry>
+          <material><ambient>0.6 0.6 0.7 1</ambient><diffuse>0.8 0.8 0.9 1</diffuse></material></visual>
       </link>
     </model>
 
@@ -157,56 +215,69 @@
       </link>
     </model>
 
-    <!-- Objects in bin (geometric primitives) -->
-    <model name="object_cube">
-      <pose>0.55 0.05 0.1 0 0 0</pose>
-      <link name="cube_link">
-        <collision name="cube_collision">
-          <geometry>
-            <box>
-              <size>0.03 0.03 0.03</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="cube_visual">
-          <geometry>
-            <box>
-              <size>0.03 0.03 0.03</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.8 0.2 0.2 1.0</ambient>
-          </material>
+    <!-- ===== 测试零件（不同材质、颜色、形状） ===== -->
+
+    <!-- 砖纹方块 -->
+    <model name="part_brick_cube">
+      <pose>0.55 0.08 0.1 0 0 0</pose>
+      <link name="link_0">
+        <collision name="coll_0"><geometry><box><size>0.04 0.04 0.04</size></box></geometry></collision>
+        <visual name="vis_0">
+          <geometry><box><size>0.04 0.04 0.04</size></box></geometry>
+          <material><script><name>Gazebo/Bricks</name></script></material>
         </visual>
       </link>
     </model>
 
-    <model name="object_cylinder">
-      <pose>0.45 -0.05 0.1 0 0 0</pose>
-      <link name="cyl_link">
-        <collision name="cyl_collision">
-          <geometry>
-            <cylinder>
-              <radius>0.02</radius>
-              <length>0.05</length>
-            </cylinder>
-          </geometry>
-        </collision>
-        <visual name="cyl_visual">
-          <geometry>
-            <cylinder>
-              <radius>0.02</radius>
-              <length>0.05</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.2 0.6 0.2 1.0</ambient>
-          </material>
+    <!-- 木纹圆柱 -->
+    <model name="part_wood_cylinder">
+      <pose>0.45 -0.08 0.1 0 0 0</pose>
+      <link name="link_1">
+        <collision name="coll_1"><geometry><cylinder><radius>0.025</radius><length>0.06</length></cylinder></geometry></collision>
+        <visual name="vis_1">
+          <geometry><cylinder><radius>0.025</radius><length>0.06</length></cylinder></geometry>
+          <material><script><name>Gazebo/Wood</name></script></material>
         </visual>
       </link>
     </model>
 
-    <!-- Stereo Camera Rig (eye-to-hand, above the bin, looking down) -->
+    <!-- 水泥灰球体 -->
+    <model name="part_cement_sphere">
+      <pose>0.5 0 0.1 0 0 0</pose>
+      <link name="link_2">
+        <collision name="coll_2"><geometry><sphere><radius>0.022</radius></sphere></geometry></collision>
+        <visual name="vis_2">
+          <geometry><sphere><radius>0.022</radius></sphere></geometry>
+          <material><script><name>Gazebo/Ceiling</name></script></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 白色方块 -->
+    <model name="part_white_cube">
+      <pose>0.6 -0.03 0.1 0 0 0</pose>
+      <link name="link_3">
+        <collision name="coll_3"><geometry><box><size>0.035 0.035 0.035</size></box></geometry></collision>
+        <visual name="vis_3">
+          <geometry><box><size>0.035 0.035 0.035</size></box></geometry>
+          <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 深色木纹长条 -->
+    <model name="part_darkwood_bar">
+      <pose>0.4 0.05 0.1 0 0 0.5</pose>
+      <link name="link_4">
+        <collision name="coll_4"><geometry><box><size>0.06 0.02 0.02</size></box></geometry></collision>
+        <visual name="vis_4">
+          <geometry><box><size>0.06 0.02 0.02</size></box></geometry>
+          <material><script><name>Gazebo/WoodFloor</name></script></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Stereo Camera Rig (eye-to-hand, directly above bin, looking straight down) -->
     <model name="stereo_camera">
       <static>true</static>
       <pose>0.5 0 0.5 0 0 0</pose>
