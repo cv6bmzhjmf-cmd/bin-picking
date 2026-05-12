@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# ROS2
+install/
+log/
+build/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data (large files)
+data/raw/
+data/recordings/
+*.bag
+*.pcd
+*.ply
+
+# gstack
+.gstack/
