@@ -77,6 +77,7 @@ class GraspPlanner(Node):
         self.declare_parameter('bin_size_x', 0.4)
         self.declare_parameter('bin_size_y', 0.3)
         self.declare_parameter('bin_size_z', 0.15)
+        self.declare_parameter('bin_z_tolerance', 0.35)
         self.declare_parameter('ur5_max_reach', 0.85)
 
         urdf = self.get_parameter('urdf_path').value
@@ -120,6 +121,7 @@ class GraspPlanner(Node):
         bsz = self.get_parameter('bin_size_z').value
         max_reach = self.get_parameter('ur5_max_reach').value
         approach = self.get_parameter('approach_height').value
+        z_tol = self.get_parameter('bin_z_tolerance').value
 
         # 1. Sort objects by distance from bin center (world frame)
         objects = []
@@ -140,7 +142,7 @@ class GraspPlanner(Node):
             gx, gy, gz = wx, wy, wz + approach
 
             # Collision: grasp point must be inside bin
-            if not self._inside_bin(gx, gy, gz, bcx, bcy, bcz, bsx, bsy, bsz):
+            if not self._inside_bin(gx, gy, gz, bcx, bcy, bcz, bsx, bsy, bsz, z_tol):
                 continue
 
             # Reachability: distance from UR5 base
@@ -259,12 +261,12 @@ class GraspPlanner(Node):
             throttle_duration_sec=2.0)
 
     @staticmethod
-    def _inside_bin(gx, gy, gz, bcx, bcy, bcz, bsx, bsy, bsz):
+    def _inside_bin(gx, gy, gz, bcx, bcy, bcz, bsx, bsy, bsz, z_tol):
         """Check if grasp point is within the bin bounding box."""
-        margin = 0.02  # inward margin from walls
+        margin = 0.02
         return (abs(gx - bcx) < bsx / 2 - margin and
                 abs(gy - bcy) < bsy / 2 - margin and
-                gz > bcz and gz < bcz + bsz)
+                gz > bcz - z_tol and gz < bcz + bsz + z_tol)
 
     @staticmethod
     def _quat_to_rotmat(x, y, z, w):
