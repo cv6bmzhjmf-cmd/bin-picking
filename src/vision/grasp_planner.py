@@ -134,6 +134,10 @@ class GraspPlanner(Node):
 
         best_result = None
 
+        failed_collision = 0
+        failed_reach = 0
+        failed_ik = 0
+
         for dist, idx, p in objects:
             # camera_left_optical → world
             wx = cx - p.position.y
@@ -143,6 +147,7 @@ class GraspPlanner(Node):
 
             # Collision: grasp point must be inside bin
             if not self._inside_bin(gx, gy, gz, bcx, bcy, bcz, bsx, bsy, bsz, z_tol):
+                failed_collision += 1
                 continue
 
             # Reachability: distance from UR5 base
@@ -150,6 +155,7 @@ class GraspPlanner(Node):
             dy = gy - by
             dz = gz - bz
             if math.sqrt(dx*dx + dy*dy + dz*dz) > max_reach:
+                failed_reach += 1
                 continue
 
             # Enforce minimum horizontal distance
@@ -161,27 +167,28 @@ class GraspPlanner(Node):
             if dz < -0.5:
                 dz = -0.5
 
-            # IK
+            # IK (try oriented first, fall back to position-only if error > 0.01)
             target = [dx, dy, dz]
             init = _q6_to_ikpy(self.q_current)
             R_down = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
-            try:
-                ik_result = self.chain.inverse_kinematics(
-                    target, target_orientation=R_down, initial_position=init)
-                q6 = _ikpy_to_q6(ik_result)
-                ik_method = 'oriented'
-            except Exception:
+            q6 = None
+            for method in ['oriented', 'position']:
                 try:
-                    ik_result = self.chain.inverse_kinematics(target, initial_position=init)
+                    if method == 'oriented':
+                        ik_result = self.chain.inverse_kinematics(
+                            target, target_orientation=R_down, initial_position=init)
+                    else:
+                        ik_result = self.chain.inverse_kinematics(target, initial_position=init)
                     q6 = _ikpy_to_q6(ik_result)
-                    ik_method = 'position'
+                    fk_result = self.chain.forward_kinematics(ik_result)
+                    fk_pos = fk_result[:3, 3]
+                    if np.linalg.norm(fk_pos - target) <= 0.01:
+                        ik_method = method
+                        break
                 except Exception:
                     continue
-
-            fk_result = self.chain.forward_kinematics(ik_result)
-            fk_pos = fk_result[:3, 3]
-            err = np.linalg.norm(fk_pos - target)
-            if err > 0.01:
+            if q6 is None:
+                failed_ik += 1
                 continue
 
             # optical → world rotation
@@ -194,7 +201,10 @@ class GraspPlanner(Node):
             break
 
         if best_result is None:
-            self.get_logger().warn('No reachable object found', throttle_duration_sec=5.0)
+            self.get_logger().warn(
+                f'No reachable object: {failed_collision} collision '
+                f'{failed_reach} reach {failed_ik} ik — {len(objects)} total',
+                throttle_duration_sec=2.0)
             return
 
         obj_idx, gx, gy, gz, dx, dy, dz, q6, ik_method, fk_pos, qo, R_world = best_result
