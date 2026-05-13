@@ -14,7 +14,9 @@ class StereoMatcher(Node):
         self.left_img = None
         self.right_img = None
         self.K = None
-        self.baseline = 0.06
+
+        self.declare_parameter('baseline', 0.06)
+        self.baseline = self.get_parameter('baseline').value
 
         self.left_sub = self.create_subscription(
             Image, '/stereo_camera/left/image_raw', self.left_cb, 10)
@@ -24,6 +26,7 @@ class StereoMatcher(Node):
             CameraInfo, '/stereo_camera/left/camera_info', self.info_cb, 10)
 
         self.disp_pub = self.create_publisher(Image, '/stereo/disparity', 10)
+        self.disp_raw_pub = self.create_publisher(Image, '/stereo/disparity_raw', 10)
         self.sbs_pub = self.create_publisher(Image, '/stereo/side_by_side', 10)
 
         self.sgbm_l = cv2.StereoSGBM_create(
@@ -35,8 +38,8 @@ class StereoMatcher(Node):
         )
         self.sgbm_r = cv2.ximgproc.createRightMatcher(self.sgbm_l)
         self.wls = cv2.ximgproc.createDisparityWLSFilter(self.sgbm_l)
-        self.wls.setLambda(8000)
-        self.wls.setSigmaColor(1.5)
+        self.wls.setLambda(2000)
+        self.wls.setSigmaColor(2.5)
 
         self.timer = self.create_timer(1.0, self.process)
 
@@ -64,8 +67,9 @@ class StereoMatcher(Node):
         disp_r = self.sgbm_r.compute(gr, gl).astype(np.float32) / 16.0
         disp = self.wls.filter(disp_l, gl, None, disp_r)
         disp = np.clip(disp, 80, 224)
-        # 中值滤波去噪
-        disp = cv2.medianBlur(disp.astype(np.float32), 5)
+        # 中值滤波去噪（medianBlur 需要 CV_8U）
+        disp_u8 = np.clip(disp, 0, 255).astype(np.uint8)
+        disp = cv2.medianBlur(disp_u8, 7).astype(np.float32)
 
         # 统计
         valid = disp > 80
@@ -95,6 +99,7 @@ class StereoMatcher(Node):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         self.disp_pub.publish(self.bridge.cv2_to_imgmsg(depth_v, 'bgr8'))
+        self.disp_raw_pub.publish(self.bridge.cv2_to_imgmsg(disp.astype(np.float32), '32FC1'))
 
         # 并排
         h, w = gl.shape
