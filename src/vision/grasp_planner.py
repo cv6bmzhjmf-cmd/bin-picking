@@ -5,7 +5,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, JointState
 from geometry_msgs.msg import PoseArray, PoseStamped, Pose, Point, Vector3
 from visualization_msgs.msg import Marker
-from std_msgs.msg import Header, ColorRGBA
+from std_msgs.msg import Header, ColorRGBA, Float64
 import numpy as np
 import math
 import warnings
@@ -94,7 +94,9 @@ class GraspPlanner(Node):
         self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
         self.approach_pub = self.create_publisher(JointState, '/approach_joints', 10)
         self.marker_pub = self.create_publisher(Marker, '/grasp_marker', 10)
+        self.gripper_pub = self.create_publisher(Float64, '/gripper_cmd', 10)
         self.q_current = np.zeros(6)
+        self.grasp_phase = 'approach'  # approach → grasp → lift
         self.timer = self.create_timer(1.0, self.process)
 
     def poses_cb(self, msg):
@@ -245,20 +247,23 @@ class GraspPlanner(Node):
         except Exception:
             pre_q6, pre_err = None, 999
 
-        # Publish grasp joint states
-        js = JointState()
-        js.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='')
-        js.name = _UR5_JOINTS
-        js.position = [float(x) for x in q6]
-        self.joint_pub.publish(js)
+        # Grasp sequence state machine: approach → grasp → approach → ...
+        self.grasp_phase = 'grasp' if self.grasp_phase == 'approach' else 'approach'
 
-        # Publish pre-grasp approach joints
-        if pre_q6 is not None:
-            ajs = JointState()
-            ajs.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='')
-            ajs.name = _UR5_JOINTS
-            ajs.position = [float(x) for x in pre_q6]
-            self.approach_pub.publish(ajs)
+        if self.grasp_phase == 'approach' and pre_q6 is not None:
+            js = JointState()
+            js.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='')
+            js.name = _UR5_JOINTS
+            js.position = [float(x) for x in pre_q6]
+            self.joint_pub.publish(js)
+            self.gripper_pub.publish(Float64(data=1.0))  # open
+        else:
+            js = JointState()
+            js.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='')
+            js.name = _UR5_JOINTS
+            js.position = [float(x) for x in q6]
+            self.joint_pub.publish(js)
+            self.gripper_pub.publish(Float64(data=0.0))  # close
 
         # Blue marker: pre-grasp approach point
         if pre_q6 is not None:
@@ -306,13 +311,12 @@ class GraspPlanner(Node):
         mk2.lifetime.sec = 2
         self.marker_pub.publish(mk2)
 
-        pre_info = f'pre-grasp err={pre_err:.3f}m' if pre_q6 is not None else 'pre-grasp FAIL'
+        grip = 'open' if self.grasp_phase == 'approach' else 'close'
         self.get_logger().info(
-            f'obj#{obj_idx} grasp_world=({gx:.3f},{gy:.3f},{gz:.3f}) '
-            f'target_base=({dx:.3f},{dy:.3f},{dz:.3f}) '
-            f'FK=({fk_pos[0]:.3f},{fk_pos[1]:.3f},{fk_pos[2]:.3f}) '
+            f'obj#{obj_idx} {self.grasp_phase} gripper={grip} '
+            f'grasp_world=({gx:.3f},{gy:.3f},{gz:.3f}) '
             f'err={np.linalg.norm(fk_pos - np.array([dx,dy,dz])):.3f}m '
-            f'method={ik_method} {pre_info} '
+            f'method={ik_method} '
             f'q=[{q6[0]:.2f},{q6[1]:.2f},{q6[2]:.2f},{q6[3]:.2f},{q6[4]:.2f},{q6[5]:.2f}]',
             throttle_duration_sec=2.0)
 
