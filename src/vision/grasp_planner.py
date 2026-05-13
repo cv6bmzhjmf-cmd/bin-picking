@@ -78,6 +78,7 @@ class GraspPlanner(Node):
         self.declare_parameter('bin_size_y', 0.3)
         self.declare_parameter('bin_size_z', 0.15)
         self.declare_parameter('bin_z_tolerance', 0.35)
+        self.declare_parameter('pre_grasp_height', 0.10)
         self.declare_parameter('ur5_max_reach', 0.85)
 
         urdf = self.get_parameter('urdf_path').value
@@ -91,6 +92,7 @@ class GraspPlanner(Node):
 
         self.target_pub = self.create_publisher(PoseStamped, '/grasp_target', 10)
         self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
+        self.approach_pub = self.create_publisher(JointState, '/approach_joints', 10)
         self.marker_pub = self.create_publisher(Marker, '/grasp_marker', 10)
         self.q_current = np.zeros(6)
         self.timer = self.create_timer(1.0, self.process)
@@ -223,12 +225,55 @@ class GraspPlanner(Node):
         msg.pose.orientation.w = q[3]
         self.target_pub.publish(msg)
 
-        # Publish joint states
+        # Pre-grasp waypoint (above object to avoid bin walls)
+        pre_gz = gz + self.get_parameter('pre_grasp_height').value
+        pre_dz = pre_gz - bz
+        pre_r = math.sqrt(dx*dx + dy*dy)
+        if pre_r < 0.3:
+            scale = 0.3 / pre_r if pre_r > 0.01 else 1.0
+            pre_dx = dx * scale
+            pre_dy = dy * scale
+        else:
+            pre_dx, pre_dy = dx, dy
+        pre_target = [pre_dx, pre_dy, pre_dz]
+        pre_init = _q6_to_ikpy(self.q_current)
+        try:
+            pre_ik = self.chain.inverse_kinematics(pre_target, initial_position=pre_init)
+            pre_q6 = _ikpy_to_q6(pre_ik)
+            pre_fk = self.chain.forward_kinematics(pre_ik)
+            pre_err = np.linalg.norm(pre_fk[:3, 3] - pre_target)
+        except Exception:
+            pre_q6, pre_err = None, 999
+
+        # Publish grasp joint states
         js = JointState()
         js.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='')
         js.name = _UR5_JOINTS
         js.position = [float(x) for x in q6]
         self.joint_pub.publish(js)
+
+        # Publish pre-grasp approach joints
+        if pre_q6 is not None:
+            ajs = JointState()
+            ajs.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='')
+            ajs.name = _UR5_JOINTS
+            ajs.position = [float(x) for x in pre_q6]
+            self.approach_pub.publish(ajs)
+
+        # Blue marker: pre-grasp approach point
+        if pre_q6 is not None:
+            mk3 = Marker()
+            mk3.header = Header(stamp=self.get_clock().now().to_msg(), frame_id='world')
+            mk3.ns = 'pre_grasp'
+            mk3.id = 0
+            mk3.type = Marker.SPHERE
+            mk3.action = Marker.ADD
+            mk3.pose.position = Point(x=gx, y=gy, z=pre_gz)
+            mk3.pose.orientation.w = 1.0
+            mk3.scale = Vector3(x=0.025, y=0.025, z=0.025)
+            mk3.color = ColorRGBA(r=0.0, g=0.5, b=1.0, a=0.8)
+            mk3.lifetime.sec = 2
+            self.marker_pub.publish(mk3)
 
         # Red marker: grasp target
         mk = Marker()
@@ -261,12 +306,13 @@ class GraspPlanner(Node):
         mk2.lifetime.sec = 2
         self.marker_pub.publish(mk2)
 
+        pre_info = f'pre-grasp err={pre_err:.3f}m' if pre_q6 is not None else 'pre-grasp FAIL'
         self.get_logger().info(
             f'obj#{obj_idx} grasp_world=({gx:.3f},{gy:.3f},{gz:.3f}) '
             f'target_base=({dx:.3f},{dy:.3f},{dz:.3f}) '
             f'FK=({fk_pos[0]:.3f},{fk_pos[1]:.3f},{fk_pos[2]:.3f}) '
             f'err={np.linalg.norm(fk_pos - np.array([dx,dy,dz])):.3f}m '
-            f'method={ik_method} '
+            f'method={ik_method} {pre_info} '
             f'q=[{q6[0]:.2f},{q6[1]:.2f},{q6[2]:.2f},{q6[3]:.2f},{q6[4]:.2f},{q6[5]:.2f}]',
             throttle_duration_sec=2.0)
 
