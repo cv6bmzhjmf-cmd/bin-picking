@@ -241,11 +241,14 @@ class GraspPlanner(Node):
         pre_init = _q6_to_ikpy(self.q_current)
         try:
             pre_ik = self.chain.inverse_kinematics(pre_target, initial_position=pre_init)
-            pre_q6 = _ikpy_to_q6(pre_ik)
+            pre_q6_candidate = _ikpy_to_q6(pre_ik)
             pre_fk = self.chain.forward_kinematics(pre_ik)
             pre_err = np.linalg.norm(pre_fk[:3, 3] - pre_target)
+            pre_q6 = pre_q6_candidate if pre_err <= 0.01 else None
         except Exception:
             pre_q6, pre_err = None, 999
+        if pre_q6 is None and pre_err != 999:
+            self.get_logger().debug(f'Pre-grasp IK poor: err={pre_err:.3f}m')
 
         # Grasp sequence state machine: approach → grasp → approach → ...
         self.grasp_phase = 'grasp' if self.grasp_phase == 'approach' else 'approach'
