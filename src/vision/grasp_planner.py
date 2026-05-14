@@ -49,7 +49,6 @@ class GraspPlanner(Node):
         self.declare_parameter('cam_world_x', 0.47)
         self.declare_parameter('cam_world_y', 0.0)
         self.declare_parameter('cam_world_z', 0.5)
-        self.declare_parameter('cam_z_offset', 0.33)
         self.declare_parameter('ur5_base_x', 0.5)
         self.declare_parameter('ur5_base_y', 0.35)
         self.declare_parameter('ur5_base_z', 0.0)
@@ -92,7 +91,7 @@ class GraspPlanner(Node):
             'cam_world_x', 'cam_world_y', 'cam_world_z', 'ur5_base_x', 'ur5_base_y',
             'ur5_base_z', 'bin_center_x', 'bin_center_y', 'bin_center_z',
             'bin_size_x', 'bin_size_y', 'bin_size_z', 'ur5_max_reach',
-            'approach_height', 'bin_z_tolerance', 'cam_z_offset', 'pre_grasp_height']}
+            'approach_height', 'bin_z_tolerance', 'pre_grasp_height']}
 
         objects = self._sort_objects(params['cam_world_x'], params['cam_world_y'],
                                      params['bin_center_x'], params['bin_center_y'])
@@ -143,13 +142,12 @@ class GraspPlanner(Node):
         max_reach = params['ur5_max_reach']
         approach = params['approach_height']
         z_tol = params['bin_z_tolerance']
-        z_off = params['cam_z_offset']
 
         failed_collision, failed_reach, failed_ik = 0, 0, 0
 
         for dist, idx, p in objects:
             ox, oy, oz = p.position.x, p.position.y, p.position.z
-            wx, wy, wz = optical_to_world(ox, oy, oz, cx, cy, cz, z_off)
+            wx, wy, wz = optical_to_world(ox, oy, oz, cx, cy, cz)
             gx, gy, gz = wx, wy, wz + approach
 
             if not self._inside_bin(gx, gy, gz, bcx, bcy, bcz, bsx, bsy, bsz, z_tol):

@@ -27,6 +27,7 @@ class PoseEstimator(Node):
         self.declare_parameter('baseline', 0.06)
         self.declare_parameter('max_depth', 2.0)
         self.declare_parameter('min_cluster_points', 300)
+        self.declare_parameter('z_correction', 0.33)
 
         self.disp_sub = self.create_subscription(
             Image, '/stereo/disparity_raw', self.disp_cb, 10)
@@ -148,13 +149,21 @@ class PoseEstimator(Node):
         if icp_enabled:
             R_cv, center = self.refine_icp(cluster, R_cv, center)
 
-        # 转换为 ROS 姿态（四元数）
+        z_raw = float(center[2])
+        z_corr = self.get_parameter('z_correction').value
+        z_corrected = z_raw - z_corr
+
+        self.get_logger().debug(
+            f'Pose centroid: raw_z={z_raw:.4f}m '
+            f'corrected_z={z_corrected:.4f}m '
+            f'(correction={z_corr:.4f}m)',
+            throttle_duration_sec=5.0)
+
         pose = Pose()
         pose.position.x = float(center[0])
         pose.position.y = float(center[1])
-        pose.position.z = float(center[2])
+        pose.position.z = z_corrected
 
-        # 旋转矩阵 → 四元数
         q = rotmat_to_quat(R_cv)
         pose.orientation.x = q[0]
         pose.orientation.y = q[1]
