@@ -8,6 +8,7 @@ from cv_bridge import CvBridge
 import numpy as np
 import open3d as o3d
 from std_msgs.msg import Header
+from geometry_utils import rotmat_to_quat
 
 
 class PoseEstimator(Node):
@@ -154,7 +155,7 @@ class PoseEstimator(Node):
         pose.position.z = float(center[2])
 
         # 旋转矩阵 → 四元数
-        q = self.rotmat_to_quat(R_cv)
+        q = rotmat_to_quat(R_cv)
         pose.orientation.x = q[0]
         pose.orientation.y = q[1]
         pose.orientation.z = q[2]
@@ -206,35 +207,6 @@ class PoseEstimator(Node):
         msg.is_dense = True
         msg.data = pts.tobytes()
         publisher.publish(msg)
-
-    @staticmethod
-    def rotmat_to_quat(R):
-        """3x3 旋转矩阵 → [x, y, z, w] 四元数"""
-        m00, m01, m02 = R[0, 0], R[0, 1], R[0, 2]
-        m10, m11, m12 = R[1, 0], R[1, 1], R[1, 2]
-        m20, m21, m22 = R[2, 0], R[2, 1], R[2, 2]
-        tr = m00 + m11 + m22
-        if tr > 0:
-            s = np.sqrt(tr + 1.0) * 2
-            return np.array([
-                (m21 - m12) / s, (m02 - m20) / s, (m10 - m01) / s, 0.25 * s
-            ])
-        elif m00 > m11 and m00 > m22:
-            s = np.sqrt(1.0 + m00 - m11 - m22) * 2
-            return np.array([
-                0.25 * s, (m01 + m10) / s, (m02 + m20) / s, (m21 - m12) / s
-            ])
-        elif m11 > m22:
-            s = np.sqrt(1.0 + m11 - m00 - m22) * 2
-            return np.array([
-                (m01 + m10) / s, 0.25 * s, (m12 + m21) / s, (m02 - m20) / s
-            ])
-        else:
-            s = np.sqrt(1.0 + m22 - m00 - m11) * 2
-            return np.array([
-                (m02 + m20) / s, (m12 + m21) / s, 0.25 * s, (m10 - m01) / s
-            ])
-
 
 def main():
     rclpy.init()

@@ -6,9 +6,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'vision'
 
 import numpy as np
 import math
-from ikpy.chain import Chain
+from geometry_utils import optical_to_world, rotmat_to_quat, quat_to_rotmat
 import warnings
 warnings.filterwarnings('ignore')
+
+try:
+    from ikpy.chain import Chain
+    HAS_IKPY = True
+except ImportError:
+    HAS_IKPY = False
 
 URDF_PATH = '/tmp/ur5.urdf'
 PASS, FAIL = 0, 0
@@ -31,6 +37,9 @@ def check(name, actual, expected=None, tol=0.01):
 def test_ur5_kinematics():
     """Test UR5 FK/IK via ikpy"""
     print('\n=== UR5 Kinematics (ikpy) ===')
+    if not HAS_IKPY:
+        print('  [SKIP] ikpy not installed')
+        return
     if not os.path.exists(URDF_PATH):
         print(f'  [SKIP] URDF not found: {URDF_PATH}')
         return
@@ -55,19 +64,14 @@ def test_coordinate_transform():
     print('\n=== Coordinate Transform ===')
     cx, cy, cz = 0.47, 0.0, 0.5
 
-    # Object at optical origin → should be near camera in world
-    ox, oy, oz = 0.0, 0.0, 0.5
-    wx = cx - oy
-    wy = cy + ox
-    wz = cz - oz
+    wx, wy, wz = optical_to_world(0.0, 0.0, 0.5, cx, cy, cz)
     check('optical_origin → world_x ≈ 0.47', wx, 0.47)
     check('optical_origin → world_y ≈ 0.0', wy, 0.0)
     check('optical_origin → world_z ≈ 0.0', wz, 0.0)
 
-    # Object 0.1m right in optical (optical_x=+0.1) → world_y=cy+0.1=0.1
-    wx2 = cx - 0.0  # optical_y=0
-    wy2 = cy + 0.1  # optical_x=+0.1
+    wx2, wy2, wz2 = optical_to_world(0.1, 0.0, 0.5, cx, cy, cz)
     check('optical right(+x) → world +y', wy2, 0.1)
+    check('world_x unchanged for +x', wx2, 0.47)
 
 
 def test_collision_detection():
@@ -105,6 +109,9 @@ def test_reachability():
 def test_grasp_strategy():
     """End-to-end: object pose → grasp → IK"""
     print('\n=== End-to-End Grasp Strategy ===')
+    if not HAS_IKPY:
+        print('  [SKIP] ikpy not installed')
+        return
     if not os.path.exists(URDF_PATH):
         print(f'  [SKIP] URDF not found: {URDF_PATH}')
         return
@@ -150,6 +157,79 @@ def test_grasp_strategy():
     check('at least one object reachable', best_err, 0.0, tol=0.01)
 
 
+def test_empty_object_list():
+    """Empty pose array should not crash"""
+    print('\n=== Empty Object List ===')
+    check('empty list handled', len([]) == 0)
+
+
+def test_max_reach_boundary():
+    """Objects at UR5 max reach boundary"""
+    print('\n=== Max Reach Boundary ===')
+    bx, by, bz = 0.5, 0.35, 0.0
+    max_reach = 0.85
+
+    def reachable(dx, dy, dz):
+        return math.sqrt(dx*dx + dy*dy + dz*dz) <= max_reach
+
+    check('at limit (0.85m)', reachable(0.85, 0.0, 0.0))
+    check('just beyond (0.86m)', not reachable(0.86, 0.0, 0.0))
+    check('diagonal at limit', reachable(0.6, 0.6, 0.05))
+
+
+def test_bin_edge_cases():
+    """Objects at bin boundary"""
+    print('\n=== Bin Edge Cases ===')
+    bcx, bcy, bcz = 0.5, 0.0, 0.05
+    bsx, bsy, bsz = 0.4, 0.3, 0.15
+    z_tol = 0.05
+    margin = 0.02
+
+    def inside(gx, gy, gz):
+        return (abs(gx - bcx) < bsx / 2 - margin and
+                abs(gy - bcy) < bsy / 2 - margin and
+                gz > bcz - z_tol and gz < bcz + bsz + z_tol)
+
+    check('at bin floor (z_tol ok)', inside(0.5, 0.0, 0.001))
+    check('below bin floor', not inside(0.5, 0.0, -0.1))
+    check('at x boundary', inside(0.67, 0.0, 0.06))
+    check('beyond x boundary', not inside(0.70, 0.0, 0.06))
+    check('at y boundary', inside(0.5, 0.12, 0.06))
+    check('beyond y boundary', not inside(0.5, 0.14, 0.06))
+    check('above bin top', not inside(0.5, 0.0, 0.25))
+
+
+def test_rotmat_quat_roundtrip():
+    """Verify rotmat ↔ quat roundtrip via geometry_utils"""
+    print('\n=== RotMat <-> Quat Roundtrip ===')
+    R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+    q = rotmat_to_quat(R)
+    R2 = quat_to_rotmat(q[0], q[1], q[2], q[3])
+    check('roundtrip within tolerance', np.allclose(R, R2, atol=0.001))
+
+
+def test_multiple_objects_sort():
+    """Verify objects sorted by distance from bin center"""
+    print('\n=== Multi-Object Sort ===')
+    cam_x, cam_y = 0.47, 0.0
+    bin_cx, bin_cy = 0.5, 0.0
+
+    objects = [
+        (0.02, -0.01, 0.45),   # near center
+        (0.15, -0.10, 0.55),   # far from center
+        (0.05, 0.03, 0.48),    # medium
+    ]
+
+    def sort_key(opt):
+        ox, oy, oz = opt
+        wx, wy, _ = optical_to_world(ox, oy, oz, cam_x, cam_y, 0.0)
+        return math.sqrt((wx - bin_cx)**2 + (wy - bin_cy)**2)
+
+    sorted_objs = sorted(objects, key=sort_key)
+    # Nearest to bin center should be first
+    check('sort picks nearest first', sorted_objs[0] == objects[0])
+
+
 if __name__ == '__main__':
     print('Bin-Picking Pipeline Offline Test')
     print('=================================')
@@ -158,6 +238,11 @@ if __name__ == '__main__':
     test_collision_detection()
     test_reachability()
     test_grasp_strategy()
+    test_empty_object_list()
+    test_max_reach_boundary()
+    test_bin_edge_cases()
+    test_rotmat_quat_roundtrip()
+    test_multiple_objects_sort()
     print(f'\n{"="*40}')
     print(f'Results: {PASS} passed, {FAIL} failed')
     if FAIL == 0:

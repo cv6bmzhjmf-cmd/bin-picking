@@ -6,6 +6,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
+from scipy.ndimage import median_filter
 
 class StereoMatcher(Node):
     def __init__(self):
@@ -17,6 +18,7 @@ class StereoMatcher(Node):
 
         self.declare_parameter('baseline', 0.06)
         self.baseline = self.get_parameter('baseline').value
+        self._debug_saved = False
 
         self.left_sub = self.create_subscription(
             Image, '/stereo_camera/left/image_raw', self.left_cb, 10)
@@ -67,9 +69,7 @@ class StereoMatcher(Node):
         disp_r = self.sgbm_r.compute(gr, gl).astype(np.float32) / 16.0
         disp = self.wls.filter(disp_l, gl, None, disp_r)
         disp = np.clip(disp, 80, 224)
-        # 中值滤波去噪（medianBlur 需要 CV_8U）
-        disp_u8 = np.clip(disp, 0, 255).astype(np.uint8)
-        disp = cv2.medianBlur(disp_u8, 7).astype(np.float32)
+        disp = median_filter(disp.astype(np.float32), size=7)
 
         # 统计
         valid = disp > 80
@@ -110,13 +110,12 @@ class StereoMatcher(Node):
             cv2.line(s, (0, y), (w * 2, y), (0, 255, 0), 1)
         self.sbs_pub.publish(self.bridge.cv2_to_imgmsg(s, 'bgr8'))
 
-        # 保存
-        if getattr(self, '_saved', 0) == 0:
+        if not self._debug_saved:
             cv2.imwrite('/tmp/left_gray.png', gl)
             cv2.imwrite('/tmp/right_gray.png', gr)
             cv2.imwrite('/tmp/depth.png', depth_v)
             self.get_logger().info('已保存')
-            self._saved = 1
+            self._debug_saved = True
 
 
 def main():

@@ -2,7 +2,7 @@
 
 ## 🔧 gstack
 
-- **网页浏览**：始终使用 `/browse` skill 进行所有网页浏览，**绝不使用** `mcp__claude-in-chrome__*` 系列工具
+- **网页浏览**：始终使用 `/browse` skill 进行所有网页浏览，如果失败使用tavily进行网页浏览 **绝不使用** `mcp__claude-in-chrome__*` 系列工具
 - **可用 skills**：
   `/office-hours` `/plan-ceo-review` `/plan-eng-review` `/plan-design-review`
   `/design-consultation` `/design-shotgun` `/design-html` `/review` `/ship`
