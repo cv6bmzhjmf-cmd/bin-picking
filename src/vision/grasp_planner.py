@@ -12,6 +12,7 @@ import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='ikpy')
 from ikpy.chain import Chain
 from geometry_utils import rotmat_to_quat, quat_to_rotmat, optical_to_world
+from gazebo_msgs.srv import SetModelConfiguration
 
 _UR5_JOINTS = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
@@ -61,6 +62,7 @@ class GraspPlanner(Node):
         self.declare_parameter('bin_z_tolerance', 0.05)
         self.declare_parameter('pre_grasp_height', 0.10)
         self.declare_parameter('ur5_max_reach', 0.85)
+        self.declare_parameter('use_gazebo_joints', True)
 
         urdf = self.get_parameter('urdf_path').value
         self.chain = Chain.from_urdf_file(urdf)
@@ -74,8 +76,12 @@ class GraspPlanner(Node):
         self.approach_pub = self.create_publisher(JointState, '/approach_joints', 10)
         self.marker_pub = self.create_publisher(Marker, '/grasp_marker', 10)
         self.gripper_pub = self.create_publisher(Float64, '/gripper_cmd', 10)
+
+        self.gazebo_client = self.create_client(
+            SetModelConfiguration, '/gazebo/set_model_configuration')
+
         self.q_current = np.zeros(6)
-        self.grasp_phase = 'approach'  # approach → grasp → lift
+        self.grasp_phase = 'approach'
         self.timer = self.create_timer(1.0, self.process)
 
     def poses_cb(self, msg):
@@ -254,6 +260,19 @@ class GraspPlanner(Node):
         js.name = _UR5_JOINTS
         js.position = [float(x) for x in angles]
         self.joint_pub.publish(js)
+
+        if self.get_parameter('use_gazebo_joints').value:
+            self._set_gazebo_joints(angles)
+
+    def _set_gazebo_joints(self, angles):
+        if not self.gazebo_client.service_is_ready():
+            self.get_logger().debug('Gazebo service not ready', throttle_duration_sec=5.0)
+            return
+        req = SetModelConfiguration.Request()
+        req.model_name = 'ur5'
+        req.joint_names = list(_UR5_JOINTS)
+        req.joint_positions = [float(a) for a in angles]
+        self.gazebo_client.call_async(req)
 
     def _publish_markers(self, best, pre_gz, pre_q6, params):
         bx, by, bz = params['ur5_base_x'], params['ur5_base_y'], params['ur5_base_z']
