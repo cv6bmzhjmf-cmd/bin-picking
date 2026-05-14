@@ -20,6 +20,18 @@ class StereoMatcher(Node):
         self.baseline = self.get_parameter('baseline').value
         self._debug_saved = False
 
+        # SGBM parameters
+        self.declare_parameter('sgbm_min_disparity', 80)
+        self.declare_parameter('sgbm_num_disparities', 144)
+        self.declare_parameter('sgbm_block_size', 15)
+        self.declare_parameter('sgbm_uniqueness_ratio', 5)
+        self.declare_parameter('sgbm_speckle_window_size', 50)
+        self.declare_parameter('sgbm_speckle_range', 16)
+        self.declare_parameter('sgbm_pre_filter_cap', 31)
+        # WLS parameters
+        self.declare_parameter('wls_lambda', 2000)
+        self.declare_parameter('wls_sigma_color', 2.5)
+
         self.left_sub = self.create_subscription(
             Image, '/stereo_camera/left/image_raw', self.left_cb, 10)
         self.right_sub = self.create_subscription(
@@ -31,19 +43,28 @@ class StereoMatcher(Node):
         self.disp_raw_pub = self.create_publisher(Image, '/stereo/disparity_raw', 10)
         self.sbs_pub = self.create_publisher(Image, '/stereo/side_by_side', 10)
 
+        self._init_matchers()
+
+        self.timer = self.create_timer(1.0, self.process)
+
+    def _init_matchers(self):
+        bs = self.get_parameter('sgbm_block_size').value
         self.sgbm_l = cv2.StereoSGBM_create(
-            minDisparity=80, numDisparities=144, blockSize=15,
-            P1=8 * 3 * 15**2, P2=32 * 3 * 15**2,
-            disp12MaxDiff=-1, uniquenessRatio=5,
-            speckleWindowSize=50, speckleRange=16,
-            preFilterCap=31,
+            minDisparity=self.get_parameter('sgbm_min_disparity').value,
+            numDisparities=self.get_parameter('sgbm_num_disparities').value,
+            blockSize=bs,
+            P1=8 * 3 * bs**2,
+            P2=32 * 3 * bs**2,
+            disp12MaxDiff=-1,
+            uniquenessRatio=self.get_parameter('sgbm_uniqueness_ratio').value,
+            speckleWindowSize=self.get_parameter('sgbm_speckle_window_size').value,
+            speckleRange=self.get_parameter('sgbm_speckle_range').value,
+            preFilterCap=self.get_parameter('sgbm_pre_filter_cap').value,
         )
         self.sgbm_r = cv2.ximgproc.createRightMatcher(self.sgbm_l)
         self.wls = cv2.ximgproc.createDisparityWLSFilter(self.sgbm_l)
-        self.wls.setLambda(2000)
-        self.wls.setSigmaColor(2.5)
-
-        self.timer = self.create_timer(1.0, self.process)
+        self.wls.setLambda(self.get_parameter('wls_lambda').value)
+        self.wls.setSigmaColor(self.get_parameter('wls_sigma_color').value)
 
     def info_cb(self, msg):
         if self.K is None:
