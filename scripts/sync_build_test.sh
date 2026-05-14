@@ -8,10 +8,10 @@ PKG=bin_picking_sim
 PKG_SRC=$WS/src/$PKG
 
 echo "=== 同步代码 ==="
-mkdir -p $PKG_SRC/src/vision
+mkdir -p $PKG_SRC/src/vision $PKG_SRC/tests
 cp $SRC/src/vision/*.py $PKG_SRC/src/vision/
 cp $SRC/src/simulation/launch/sim.launch.py $PKG_SRC/launch/
-cp $SRC/tests/test_pipeline.py $PKG_SRC/tests/ 2>/dev/null || true
+cp $SRC/tests/*.py $PKG_SRC/tests/ 2>/dev/null || true
 echo "同步完成"
 
 echo "=== 编译 ==="
@@ -27,7 +27,9 @@ case $MODE in
     ros2 launch $PKG sim.launch.py
     ;;
   test)
-    python3 $PKG_SRC/tests/test_pipeline.py
+    echo "--- Geometry ---";  python3 $PKG_SRC/tests/test_geometry.py
+    echo "--- Stereo  ---";  python3 $PKG_SRC/tests/test_stereo_matcher.py
+    echo "--- Pipeline---";  python3 $PKG_SRC/tests/test_pipeline.py
     ;;
   *)
     echo "编译完成。./sync_build_test.sh launch 启动 | test 离线测试"
