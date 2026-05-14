@@ -18,16 +18,14 @@
 - [ ] **夹爪物理仿真** — gripper 状态机已经实现了 开(1.0)/闭(0.0) 逻辑，但 Gazebo 中没有夹爪物理模型。需要在 URDF/SDF 中添加 gripper joint 并配合关节控制使用。
   - 入口: `src/vision/grasp_planner.py:_execute_phase`
 
-- [ ] **SGBM 参数可配置化** — `stereo_matcher.py` 中 minDisparity、numDisparities、blockSize 等硬编码。应声明为 ROS 参数。
-  - 入口: `src/vision/stereo_matcher.py:32-38`
+- [x] **SGBM 参数可配置化** — 9 个 ROS 参数 + `_init_matchers()` (commit 6140378, 2026-05-14)
 
 - [ ] **pose_estimator ICP 真实化** — 当前 ICP 用自身点云扰动作为 source/target（玩具实现）。应改为对 CAD 模型采样点云做 source，实际点云做 target。
   - 入口: `src/vision/pose_estimator.py:166-189`
 
 ## P2 (改善)
 
-- [ ] **pytest 迁移** — 测试框架从全局变量 PASS/FAIL 手动计数迁移到 pytest fixtures + assert。不阻塞功能。
-  - 入口: `tests/` 下所有测试文件
+- [x] **pytest 迁移** — conftest.py + fixtures + CI 用 pytest (commit 718a864, 2026-05-14)
 
 - [x] **CI/CD** — GitHub Actions 自动跑离线测试 (commit 12b938b, 2026-05-14)
 
