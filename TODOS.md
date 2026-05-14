@@ -29,8 +29,7 @@
 - [ ] **pytest 迁移** — 测试框架从全局变量 PASS/FAIL 手动计数迁移到 pytest fixtures + assert。不阻塞功能。
   - 入口: `tests/` 下所有测试文件
 
-- [ ] **CI/CD** — 添加 GitHub Actions 自动跑离线测试（test_geometry + test_stereo_matcher + test_pipeline 离线部分）
-  - 前提: GitHub Actions Ubuntu runner 上 pip install numpy scipy + 生成 URDF
+- [x] **CI/CD** — GitHub Actions 自动跑离线测试 (commit 12b938b, 2026-05-14)
 
 - [ ] **实体工控机部署** — 将整套管线从 WSL2 迁移到实体 Ubuntu 22.04 工控机，真正连接 UR5 和双目相机
   - 依赖: Gazebo 关节控制、z-offset 根除、夹爪物理
