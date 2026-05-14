@@ -45,6 +45,19 @@ def generate_launch_description():
         output='screen'
     )
 
+    # Spawn UR5 in Gazebo (5s delay for Gazebo to fully start)
+    spawn_ur5 = TimerAction(
+        period=5.0,
+        actions=[
+            ExecuteProcess(
+                cmd=['ros2', 'run', 'gazebo_ros', 'spawn_entity.py',
+                     '-file', _urdf_path, '-entity', 'ur5',
+                     '-x', '0.5', '-y', '0.35', '-z', '0.0'],
+                output='screen'
+            )
+        ]
+    )
+
     # Delay grasp_planner 3s to ensure URDF is generated first
     grasp_planner = TimerAction(
         period=3.0,
@@ -60,6 +73,7 @@ def generate_launch_description():
         declare_world,
         gazebo,
         generate_urdf,
+        spawn_ur5,
         stereo_matcher,
         pose_estimator,
         grasp_planner,
