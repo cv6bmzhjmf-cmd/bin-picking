@@ -8,10 +8,11 @@ PKG=bin_picking_sim
 PKG_SRC=$WS/src/$PKG
 
 echo "=== 同步代码 ==="
-mkdir -p $PKG_SRC/src/vision $PKG_SRC/tests
+mkdir -p $PKG_SRC/src/vision $PKG_SRC/tests $PKG_SRC/scripts
 cp $SRC/src/vision/*.py $PKG_SRC/src/vision/
-cp $SRC/src/simulation/launch/sim.launch.py $PKG_SRC/launch/
+cp $SRC/src/simulation/launch/* $PKG_SRC/launch/
 cp $SRC/tests/*.py $PKG_SRC/tests/ 2>/dev/null || true
+cp $SRC/scripts/*.py $PKG_SRC/scripts/ 2>/dev/null || true
 echo "同步完成"
 
 echo "=== 编译 ==="

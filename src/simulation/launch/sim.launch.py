@@ -23,12 +23,14 @@ def generate_launch_description():
     _vision_dir = os.path.join(_pkg_share, 'src', 'vision')
     _urdf_path = '/tmp/ur5.urdf'
 
-    # Generate UR5 URDF before grasp_planner starts
+    # Generate UR5 URDF + inject joint damping (WSL2: no ros2_control, add stiffness)
+    _launch_dir = os.path.dirname(os.path.realpath(__file__))
+    _inject_script = os.path.join(_launch_dir, 'inject_dynamics.py')
     _xacro_cmd = (
         'xacro /opt/ros/humble/share/ur_description/urdf/ur.urdf.xacro '
         'name:=ur5 ur_type:=ur5 '
         '| sed "s|package://ur_description|/opt/ros/humble/share/ur_description|g" '
-        f'> {_urdf_path}'
+        f'> {_urdf_path} && python3 {_inject_script} {_urdf_path}'
     )
     generate_urdf = ExecuteProcess(
         cmd=['bash', '-c', _xacro_cmd],
