@@ -63,6 +63,8 @@ class GraspPlanner(Node):
         self.declare_parameter('pre_grasp_height', 0.10)
         self.declare_parameter('ur5_max_reach', 0.85)
         self.declare_parameter('use_gazebo_joints', True)
+        self.declare_parameter('trajectory_duration', 1.5)
+        self.declare_parameter('trajectory_hz', 50.0)
 
         urdf = self.get_parameter('urdf_path').value
         self.chain = Chain.from_urdf_file(urdf)
@@ -83,6 +85,11 @@ class GraspPlanner(Node):
         self.q_current = np.zeros(6)
         self.grasp_phase = 'approach'
         self.timer = self.create_timer(1.0, self.process)
+
+        self._traj_start_q = None
+        self._traj_target_q = None
+        self._traj_start_time = None
+        self._traj_timer = None
 
     def poses_cb(self, msg):
         self.object_poses = msg
@@ -264,15 +271,59 @@ class GraspPlanner(Node):
         if self.get_parameter('use_gazebo_joints').value:
             self._set_gazebo_joints(angles)
 
-    def _set_gazebo_joints(self, angles):
+    @staticmethod
+    def _smooth_step(t):
+        """Cubic ease-in-out: zero velocity at t=0 and t=1"""
+        return 3*t*t - 2*t*t*t
+
+    def _start_trajectory(self, target):
         if not self.gazebo_client.service_is_ready():
-            self.get_logger().debug('Gazebo service not ready', throttle_duration_sec=5.0)
+            self.get_logger().debug('Gazebo not ready, teleporting', throttle_duration_sec=5.0)
+            self._send_joints(target)
+            return
+
+        self._traj_start_q = self.q_current.copy()
+        self._traj_target_q = np.array(target, dtype=np.float64)
+        self._traj_start_time = self.get_clock().now()
+
+        dt = 1.0 / self.get_parameter('trajectory_hz').value
+        if self._traj_timer is None:
+            self._traj_timer = self.create_timer(dt, self._traj_step)
+        self.get_logger().info(
+            f'Trajectory start: {np.round(self._traj_start_q, 2)} → '
+            f'{np.round(self._traj_target_q, 2)}')
+
+    def _traj_step(self):
+        if self._traj_start_q is None:
+            return
+
+        elapsed = (self.get_clock().now() - self._traj_start_time).nanoseconds * 1e-9
+        T = self.get_parameter('trajectory_duration').value
+
+        if elapsed >= T:
+            self._send_joints(self._traj_target_q)
+            self.q_current = self._traj_target_q.copy()
+            self._traj_start_q = None
+            self._traj_target_q = None
+            self.get_logger().debug('Trajectory complete')
+            return
+
+        t = elapsed / T
+        alpha = self._smooth_step(t)
+        q_interp = self._traj_start_q + alpha * (self._traj_target_q - self._traj_start_q)
+        self._send_joints(q_interp)
+
+    def _send_joints(self, angles):
+        if not self.gazebo_client.service_is_ready():
             return
         req = SetModelConfiguration.Request()
         req.model_name = 'ur5'
         req.joint_names = list(_UR5_JOINTS)
         req.joint_positions = [float(a) for a in angles]
         self.gazebo_client.call_async(req)
+
+    def _set_gazebo_joints(self, angles):
+        self._start_trajectory(angles)
 
     def _publish_markers(self, best, pre_gz, pre_q6, params):
         bx, by, bz = params['ur5_base_x'], params['ur5_base_y'], params['ur5_base_z']
