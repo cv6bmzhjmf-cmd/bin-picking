@@ -2,10 +2,11 @@
 
 ## P0 (阻塞性 / 下一步)
 
-- [ ] **z-offset 根因根治** — pose_estimator 输出 optical.z 与 stereo 深度存在 ~0.33m 系统偏差。当前通过 grasp_planner `cam_z_offset=0.33` 参数补偿。根因可能在：Gazebo 相机 link offset、pose_estimator 手动 3D 计算、或 camera_left_optical 帧原点与物理相机的偏差。需要逐一排查。
-  - 入口: `src/vision/pose_estimator.py:64` — `Z = fx * baseline / d`
-  - 补偿: `src/vision/grasp_planner.py` — `cam_z_offset` 参数
-  - 影响: `bin_z_tolerance` 被反向收窄到 0.05（如果根除可进一步收紧到 0.02）
+- [x] **z-offset 补偿下沉** — 补偿已从 grasp_planner.cam_z_offset 移到 pose_estimator.z_correction (commit 7f4eb30, 2026-05-14)
+- [ ] **z-offset 根因诊断** — 需在 Gazebo 运行时收集数据：pose_estimator 的 raw_z vs corrected_z vs stereo_matcher 中心区 Z，确认 0.33m 偏差是否恒定、来源是否为聚类点选择偏差。
+  - 入口: `src/vision/pose_estimator.py:estimate_pose` — debug 日志已添加 raw_z / corrected_z
+  - 入口: `src/vision/stereo_matcher.py:process` — 中心区 Z 统计
+  - 前提: 需 Gazebo 运行环境（WSL2 或实体机）
 
 - [ ] **Gazebo 关节控制闭环** — 当前 grasp_planner 发布 `/joint_states` 话题但 Gazebo 中 UR5 不会实际移动。WSL2 不支持 ros2_control。备选方案：`ros2 service call /gazebo/set_model_configuration` 直接设置关节位姿（原生 Gazebo 接口）。
   - 入口: `src/vision/grasp_planner.py:_execute_phase`
