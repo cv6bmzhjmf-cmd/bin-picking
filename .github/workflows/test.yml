@@ -1,0 +1,29 @@
+name: Offline Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install numpy scipy
+
+      - name: Run geometry tests
+        run: python tests/test_geometry.py
+
+      - name: Run stereo matcher tests
+        run: python tests/test_stereo_matcher.py
+
+      - name: Run pipeline tests
+        run: python tests/test_pipeline.py
