@@ -68,6 +68,7 @@ class GraspPlanner(Node):
         self.declare_parameter('cam_world_x', 0.47)
         self.declare_parameter('cam_world_y', 0.0)
         self.declare_parameter('cam_world_z', 0.5)
+        self.declare_parameter('cam_z_offset', 0.33)
         self.declare_parameter('ur5_base_x', 0.5)
         self.declare_parameter('ur5_base_y', 0.35)
         self.declare_parameter('ur5_base_z', 0.0)
@@ -77,7 +78,7 @@ class GraspPlanner(Node):
         self.declare_parameter('bin_size_x', 0.4)
         self.declare_parameter('bin_size_y', 0.3)
         self.declare_parameter('bin_size_z', 0.15)
-        self.declare_parameter('bin_z_tolerance', 0.35)
+        self.declare_parameter('bin_z_tolerance', 0.05)
         self.declare_parameter('pre_grasp_height', 0.10)
         self.declare_parameter('ur5_max_reach', 0.85)
 
@@ -126,6 +127,7 @@ class GraspPlanner(Node):
         max_reach = self.get_parameter('ur5_max_reach').value
         approach = self.get_parameter('approach_height').value
         z_tol = self.get_parameter('bin_z_tolerance').value
+        z_off = self.get_parameter('cam_z_offset').value
 
         # 1. Sort objects by distance from bin center (world frame)
         objects = []
@@ -149,7 +151,7 @@ class GraspPlanner(Node):
             ox, oy, oz = p.position.x, p.position.y, p.position.z
             wx = cx - oy
             wy = cy + ox
-            wz = cz - oz
+            wz = cz - oz + z_off  # compensate pose_estimator z offset
             gx, gy, gz = wx, wy, wz + approach
 
             # Collision: grasp point must be inside bin
