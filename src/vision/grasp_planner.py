@@ -142,11 +142,14 @@ class GraspPlanner(Node):
         failed_reach = 0
         failed_ik = 0
 
+        ox_dbg, oy_dbg, oz_dbg = 0.0, 0.0, 0.0
+
         for dist, idx, p in objects:
             # camera_left_optical → world
-            wx = cx - p.position.y
-            wy = cy + p.position.x
-            wz = cz - p.position.z
+            ox, oy, oz = p.position.x, p.position.y, p.position.z
+            wx = cx - oy
+            wy = cy + ox
+            wz = cz - oz
             gx, gy, gz = wx, wy, wz + approach
 
             # Collision: grasp point must be inside bin
@@ -201,7 +204,7 @@ class GraspPlanner(Node):
             R_opt2world = np.array([[0, -1, 0], [1, 0, 0], [0, 0, -1]], dtype=np.float64)
             R_world = R_opt2world @ R_opt
 
-            best_result = (idx, gx, gy, gz, dx, dy, dz, q6, ik_method, fk_pos, qo, R_world)
+            best_result = (idx, gx, gy, gz, dx, dy, dz, q6, ik_method, fk_pos, qo, R_world, ox, oy, oz)
             break
 
         if best_result is None:
@@ -211,7 +214,7 @@ class GraspPlanner(Node):
                 throttle_duration_sec=2.0)
             return
 
-        obj_idx, gx, gy, gz, dx, dy, dz, q6, ik_method, fk_pos, qo, R_world = best_result
+        obj_idx, gx, gy, gz, dx, dy, dz, q6, ik_method, fk_pos, qo, R_world, ox_dbg, oy_dbg, oz_dbg = best_result
         self.q_current = q6
 
         # Publish grasp target
@@ -317,7 +320,8 @@ class GraspPlanner(Node):
         grip = 'open' if self.grasp_phase == 'approach' else 'close'
         self.get_logger().info(
             f'obj#{obj_idx} {self.grasp_phase} gripper={grip} '
-            f'grasp_world=({gx:.3f},{gy:.3f},{gz:.3f}) '
+            f'optical=({ox_dbg:.3f},{oy_dbg:.3f},{oz_dbg:.3f}) '
+            f'world=({gx:.3f},{gy:.3f},{gz:.3f}) '
             f'err={np.linalg.norm(fk_pos - np.array([dx,dy,dz])):.3f}m '
             f'method={ik_method} '
             f'q=[{q6[0]:.2f},{q6[1]:.2f},{q6[2]:.2f},{q6[3]:.2f},{q6[4]:.2f},{q6[5]:.2f}]',
